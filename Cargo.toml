@@ -1,0 +1,58 @@
+[package]
+name = "mcpg-plugin-storage-gcs"
+version = "0.1.0-alpha.1"
+license = "Apache-2.0"
+edition = "2024"
+description = "Google Cloud Storage plugin for MCPG (dev.mcpg.storage.gcs) — the gcs_objects watch strategy: each object created, modified or deleted under a bucket prefix as an MCP Event, from a listing or from the bucket's Pub/Sub notifications."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# Gate declare_plugin! behind these — an ungated export risks a duplicate
+# mcpg_plugin_register symbol if this crate ever links into the workspace
+# alongside another exporter.
+cdylib-export = []
+static-firstparty = []
+# Gates the docker-backed fake-gcs-server + Pub/Sub emulator suite and the
+# live Google Cloud suite (which skips unless GCS_LIVE_* is set) so plain
+# `cargo test` stays cheap. Run:
+# `cargo test -p mcpg-plugin-storage-gcs --features integration-tests`.
+integration-tests = []
+
+[dependencies]
+mcpg-plugin-protocol = { git = "https://github.com/mcpg-dev/mcpg-plugin-protocol", tag = "v0.1.0-beta.40", version = "=0.1.0-beta.40" }
+mcpg-plugin-sdk = { git = "https://github.com/mcpg-dev/mcpg-plugin-sdk", tag = "v0.1.0-beta.41", version = "=0.1.0-beta.41", features = ["static-firstparty"] }
+# Cloud Storage over its JSON API and Pub/Sub over gRPC (yoshidan/
+# google-cloud-rust, the family the BigQuery backend uses): rustls TLS,
+# service-account, authorized-user, metadata-server and external-account
+# (Workload Identity Federation) auth, emulator endpoints.
+gcloud-storage = { version = "1", features = ["external-account"] }
+gcloud-pubsub = { version = "1", features = ["external-account"] }
+# The Pub/Sub client's environment (cloud or emulator) and a token source to
+# start from, so a stray PUBSUB_EMULATOR_HOST never picks the endpoint.
+gcloud-gax = "1"
+token-source = "1"
+blake3 = "1"
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The object times the storage client hands back.
+time = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+tracing = "0.1"
+
+[dev-dependencies]
+gcloud-googleapis = { version = "1", features = ["pubsub"] }
+testcontainers = "0.27"
+
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+tracing-subscriber = "0.3"
+# The offline credential suites: a loopback token endpoint and metadata
+# server, and a service account key made for the run, whose signed grant
+# the suite checks.
+base64 = "0.23"
+rsa = { version = "0.9", features = ["sha2"] }
+url = "2"
+wiremock = "0.6"
